@@ -1,0 +1,13 @@
+library(DSOpal)
+library(DSLite)
+library(dsBaseClient)
+ds.test_env <- new.env()
+ds.test_env$login.data <- DSLite::setupCNSIMTest('dsBase', env=ds.test_env)
+ds.test_env$stats.var <- ls(ds.test_env$CNSIM1)
+ds.test_env$connections <- datashield.login(logins=ds.test_env$login.data, assign=TRUE, variables=ds.test_env$stats.var)
+options(datashield.env=ds.test_env)
+ds.ls()
+ds.dim()
+ds.dim(x='D')
+
+library(testthat)
