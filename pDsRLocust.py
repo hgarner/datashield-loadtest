@@ -52,63 +52,25 @@ class pDsRClient(pDsR):
         # successfully got test results
         # check if any failed tests - if so, error
         if self.result['failed'] != 0:
-          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(f"ran tests but {self.result['failed']} tests failed"))
+          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(f"ran tests but {self.result['failed']} tests failed"), response_length=0)
         elif self.result['ok'] > 0:
           events.request_success.fire(request_type='pdsr', name='gather_output', response_time=total_time, response_length=0)
         else:
           # no failed or ok
           # so throw exception
           # will cause issues on skipped
-          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('ran tests but no ok/failed results'))
+          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('ran tests but no ok/failed results'), response_length=0)
       elif self.status == 100:
         # successfully got any non-error output
         events.request_success.fire(request_type='pdsr', name='gather_output', response_time=total_time, response_length=0)
       elif self.status == 500:
         # error output
-        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(result))
+        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(result), response_length=0)
       elif self.status == 408:
         # timeout
-        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('timeout'))
+        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('timeout'), response_length=0)
       # note response_length hardcoded to 0 here, need to hook in at lower lvl
     return result
-
-  def getattr(self, name):
-    func = pDsR.__get_attr__(self, name)
-    def wrapper(*args, **kwargs):
-      start_time = time.time()
-      try:
-        result = func(*args, **kwargs)
-      except Exception as e: 
-        total_time = int((time.time() - start_time) * 1000)
-        events.request_failure.fire(request_type='pdsr', name=name, response_time=total_time, exception=e)
-        raise e
-      else:
-        print(result)
-        total_time = int((time.time() - start_time) * 1000)
-        if self.status == 200:
-          # successfully got test results
-          # check if any failed tests - if so, error
-          if self.result['failed'] != 0:
-            events.request_failure.fire(request_type='pdsr', name=name, response_time=total_time, exception=Exception(f"ran tests but {self.result['failed']} tests failed"))
-          elif self.result['ok'] > 0:
-            events.request_success.fire(request_type='pdsr', name=name, response_time=total_time, response_length=0)
-          else:
-            # no failed or ok
-            # so throw exception
-            # will cause issues on skipped
-            events.request_failure.fire(request_type='pdsr', name=name, response_time=total_time, exception=Exception('ran tests but no ok/failed results'))
-        elif self.status == 100:
-          # successfully got any non-error output
-          events.request_success.fire(request_type='pdsr', name=name, response_time=total_time, response_length=0)
-        elif self.status == 500:
-          # error output
-          events.request_failure.fire(request_type='pdsr', name=name, response_time=total_time, exception=Exception(result))
-        elif self.status == 408:
-          # timeout
-          events.request_failure.fire(request_type='pdsr', name=name, response_time=total_time, exception=Exception('timeout'))
-        # note response_length hardcoded to 0 here, need to hook in at lower lvl
-      return result
-    return wrapper
 
 # extend the Locust User class to add an instance of pDsR
 class DsRLocust(User):
@@ -123,22 +85,70 @@ class DsRLocust(User):
 class DsUserTasks(TaskSet):
   @task(1)
   def ls(self):
+    print('*** ls task ***')
     command = '''
     test_file('ds_load.test.ls.R')
     '''    
     try:
       self.user.dsr.r.send(command)
     except Exception as e:
-      print('DsUser.dim: Error on sending command')
+      print('DsUserTasks.ls: Error on sending command')
       raise e
 
     output = None
     try:
       output = self.user.dsr.gather_output()
       if output is None:
-        raise Exception('DsUser.dim: Error, dim returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUserTasks.ls: Error, ds.ls returning no output within {self.r_timeout} seconds')
     except Exception as e:
       print(f'DsUserTasks.ls: Error on calling gather_output ({e})')
+
+    return output
+
+  @task(1)
+  # call a test which fails for debugging and testing locust
+  def fail(self):
+    print('*** fail task ***')
+    command = '''
+    test_file('R/ds_load.test.fail.R')
+    '''    
+    try:
+      self.user.dsr.r.send(command)
+    except Exception as e:
+      print('DsUserTasks.fail: Error on sending command')
+      raise e
+
+    output = None
+    try:
+      output = self.user.dsr.gather_output()
+      if output is None:
+        raise Exception('DsUserTasks.fail: Error, failure test returning no output within {self.r_timeout} seconds')
+    except Exception as e:
+      print(f'DsUserTasks.fail: Error on calling gather_output ({e})')
+
+    return output
+
+  @task(1)
+  # call a test which times out for debugging and testing locust
+  def timeout(self):
+    print('*** timeout task ***')
+    # this will just call Sys.sleep(10) in R
+    command = '''
+    source('R/ds_load.test.timeout.R')
+    '''    
+    try:
+      self.user.dsr.r.send(command)
+    except Exception as e:
+      print('DsUserTasks.timeout: Error on sending command')
+      raise e
+
+    output = None
+    try:
+      output = self.user.dsr.gather_output()
+      if output is None:
+        raise Exception('DsUserTasks.timeout: Error, failure test returning no output within {self.r_timeout} seconds')
+    except Exception as e:
+      print(f'DsUserTasks.timeout: Error on calling gather_output ({e})')
 
     return output
 
@@ -160,6 +170,30 @@ class DsUser(DsRLocust):
     self.dsr.r.r_timeout = 5
     # login
     self.login()
+
+  def on_stop(self):
+    self.logout()
+
+  def logout(self):
+    try:
+      self.dsr.r.send(
+        '''
+        source('R/teardown.R')
+        '''
+      )
+    except Exception as e:
+      print('Error on sending logout command')
+      raise e
+
+    output = None
+    try:
+      output = self.dsr.gather_output()
+      if output is None:
+        raise Exception('DsUser.logout: Error, logout returning no output within {self.r_timeout} seconds')
+    except Exception as e:
+      print('DsUser.logout: Error on calling expect_output')
+
+    return output
 
   def login(self):
     try:
