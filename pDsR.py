@@ -11,6 +11,8 @@ class pDsR():
   # on instantiation, create a new r process and read queue
   def __init__(self, *args, **kwargs):
     self.r = pexpect.spawn('/usr/bin/R --vanilla')
+    # output for debugging
+    self.r.logfile = sys.stdout.buffer
     # todo above uses stderr - need nonblocking read on this
     # note that if we use stderr it seems to break the output of some ds commands (e.g. ds.dim)
     # turn off errors from r
@@ -21,6 +23,7 @@ class pDsR():
     self.r_prompt_timeout = 0.001
     self.r_prompt = '(.*)> $'
     self.r_error = 'Error(.*)'
+    self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?(\\x1b[39m).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
     self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
     # default timeout for a request - how long do we wait to gather output?
     self.request_timeout = 5
@@ -55,11 +58,11 @@ class pDsR():
     line_output = None
     self.r.timeout = self.r_prompt_timeout
 
-    expectations = [self.r_prompt, self.r_error, self.r_test_results]
+    expectations = [self.r_test_results, self.r_error, self.r_prompt]
     # add the expectation to the list of matches for expect()
     # if present
     if expectation is not None:
-      expectations.append(expectation)
+      expectations.insert(0, expectation)
 
     if timeout is None:
       timeout = self.request_timeout
@@ -85,7 +88,7 @@ class pDsR():
 
       # set look to 'before' to add data before match to output
       look = 'before'
-      if found_index == 0:
+      if found_index == 2:
         # found the r prompt
         # at what point should the status be set here?
         # the code passed may not yet have finished
@@ -107,10 +110,11 @@ class pDsR():
         # found an error
         self.status = 500
         look = 'after'
-      elif found_index == 2:
+      elif found_index == 0:
         # found test_results
         self.status = 200
         try:
+          print(f'match for 200: {self.r.match.group(0)}')
           self.result = {
             'ok': int(self.r.match.group('ok_count')),
             'failed': int(self.r.match.group('failed_count'))
@@ -138,7 +142,9 @@ class pDsR():
       else:
         output += line_output
 
-    print(f'output: {output}')
+    #print(f'output: {output}')
+    print(f'status: {self.status}')
+    print('..........')
     return output
 
 class pDsRRequest:
@@ -149,7 +155,7 @@ class pDsRRequest:
       'ok': None,
       'failed': None
     }
-    self.timeout = 5
+    self.timeout = 10
     self.id = str(uuid4())
     self._command = None
     self.commands = []
@@ -189,8 +195,8 @@ class pDsRRequest:
       else:
         # no output at all so entirely unresponsive
         raise ValueError(f'pDsRRequest.get error: unable to raise reponse from R output')
-      # reset the request_timeout
-      self.pdsr.request_timeout = tmp_timeout
+      # set the request_timeout to the specified value for this request
+      self.pdsr.request_timeout = self.timeout
 
       ###
       # send commands
@@ -226,6 +232,9 @@ class pDsRRequest:
           # perhaps it would be better to have self.outputs and status
           # as lists, then push results to these?
           self.status = self.pdsr.status
+
+      # reset the request_timeout
+      self.pdsr.request_timeout = tmp_timeout
 
       return self
     else:
