@@ -25,6 +25,7 @@ class pDsR():
     self.r_error = 'Error(.*)'
     self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?(\\x1b[39m).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
     self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
+    #self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+)'''
     # default timeout for a request - how long do we wait to gather output?
     self.request_timeout = 5
 
@@ -97,13 +98,31 @@ class pDsR():
         # if so, a further command has been entered, so don't set
         # the status
         print(f'matched group 1 (prompt regex is /{self.r_prompt}/): {self.r.match.group(1)}')
+        print(re.search(self.r_test_results, self.r.match.group(1).decode('utf-8')))
         if self.r.match.group(1) == b'':
           print('matched group 1 is empty')
         else:
           print('matched group 1 has data')
+          
+          # TEMP FIX
+          # odd issue with test results not always being matched
+          # so check for them here
+
+          test_results_match = re.search(self.r_test_results, self.r.match.group(0).decode('utf-8'))
+
+          if test_results_match is not None:
+            self.result = {
+              'ok': int(test_results_match.group('ok_count')),
+              'failed': int(test_results_match.group('failed_count'))
+            } 
+            print('found test results in index 2 output')
+            self.status = 200
+
         # found prompt, so use http status 100 (continue)
         if self.status is None or self.status == 408:
           self.status = 100
+        # unless status is 200 (previously found test results)
+        # or 500 (error), in which case don't change the status and break
         elif self.status == 200 or self.status == 500:
           break
       elif found_index == 1:

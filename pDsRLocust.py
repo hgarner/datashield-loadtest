@@ -1,10 +1,10 @@
 import time
 
-from locust import User, Locust, TaskSet, events, task, between
+from locust import User, TaskSet, events, task, between
 
 import sys
 
-from pDsR import pDsR
+from pDsR import pDsR, pDsRRequest
 import pexpect
 
 # implement a simple client that runs an R script
@@ -36,14 +36,26 @@ import pexpect
 
 class pDsRClient(pDsR):
   _locust_environment = None
+  
+  # generate a new request object with the locust_environment set
+  def request(self, *args, **kwargs):
+    request = pDsRClientRequest(locust_environment = self._locust_environment, pdsr_instance = self, *args, **kwargs)
+    return request
 
-  def gather_output(self, *args, **kwargs):
+class pDsRClientRequest(pDsRRequest):
+  _locust_environment = None
+
+  def __init__(self, locust_environment, *args, **kwargs):
+    self._locust_environment = locust_environment
+    super(pDsRClientRequest, self).__init__(*args, **kwargs)
+
+  def get(self, *args, **kwargs):
     start_time = time.time()
     try:
-      result = super(pDsRClient, self).gather_output(*args, **kwargs)
+      result = super(pDsRClientRequest, self).get(*args, **kwargs)
     except Exception as e: 
       total_time = int((time.time() - start_time) * 1000)
-      events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=e)
+      events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e)
       raise e
     else:
       print(result)
@@ -52,23 +64,23 @@ class pDsRClient(pDsR):
         # successfully got test results
         # check if any failed tests - if so, error
         if self.result['failed'] != 0:
-          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(f"ran tests but {self.result['failed']} tests failed"), response_length=0)
+          events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=Exception(f"ran tests but {self.result['failed']} tests failed"), response_length=0)
         elif self.result['ok'] > 0:
-          events.request_success.fire(request_type='pdsr', name='gather_output', response_time=total_time, response_length=0)
+          events.request_success.fire(request_type='pDsRRequest', name='get', response_time=total_time, response_length=0)
         else:
           # no failed or ok
           # so throw exception
           # will cause issues on skipped
-          events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('ran tests but no ok/failed results'), response_length=0)
+          events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=Exception('ran tests but no ok/failed results'), response_length=0)
       elif self.status == 100:
         # successfully got any non-error output
-        events.request_success.fire(request_type='pdsr', name='gather_output', response_time=total_time, response_length=0)
+        events.request_success.fire(request_type='pDsRRequest', name='get', response_time=total_time, response_length=0)
       elif self.status == 500:
         # error output
-        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception(result), response_length=0)
+        events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=Exception(result), response_length=0)
       elif self.status == 408:
         # timeout
-        events.request_failure.fire(request_type='pdsr', name='gather_output', response_time=total_time, exception=Exception('timeout'), response_length=0)
+        events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=Exception('timeout'), response_length=0)
       # note response_length hardcoded to 0 here, need to hook in at lower lvl
     return result
 
@@ -86,22 +98,23 @@ class DsUserTasks(TaskSet):
   @task(1)
   def ls(self):
     print('*** ls task ***')
-    command = '''
-    test_file('ds_load.test.ls.R')
-    '''    
+    request = self.user.dsr.request()
+    commands = [
+      'test_file("ds_load.test.ls.R")'
+    ]
     try:
-      self.user.dsr.r.send(command)
+      request.get(commands)
     except Exception as e:
-      print('DsUserTasks.ls: Error on sending command')
+      print('DsUserTasks.ls: Error on calling request.get()')
       raise e
 
     output = None
     try:
-      output = self.user.dsr.gather_output()
+      output = request.output
       if output is None:
-        raise Exception('DsUserTasks.ls: Error, ds.ls returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUserTasks.ls: Error, ls test returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print(f'DsUserTasks.ls: Error on calling gather_output ({e})')
+      print('DsUserTasks.ls: Error on getting request output')
 
     return output
 
@@ -109,22 +122,23 @@ class DsUserTasks(TaskSet):
   # call a test which fails for debugging and testing locust
   def fail(self):
     print('*** fail task ***')
-    command = '''
-    test_file('R/ds_load.test.fail.R')
-    '''    
+    request = self.user.dsr.request()
+    commands = [
+      'test_file("R/ds_load.test.fail.R")'
+    ]
     try:
-      self.user.dsr.r.send(command)
+      request.get(commands)
     except Exception as e:
-      print('DsUserTasks.fail: Error on sending command')
+      print('DsUserTasks.fail: Error on calling request.get()')
       raise e
 
     output = None
     try:
-      output = self.user.dsr.gather_output()
+      output = request.output
       if output is None:
-        raise Exception('DsUserTasks.fail: Error, failure test returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUserTasks.failure: Error, failure test returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print(f'DsUserTasks.fail: Error on calling gather_output ({e})')
+      print('DsUserTasks.failure: Error on getting request output')
 
     return output
 
@@ -133,22 +147,23 @@ class DsUserTasks(TaskSet):
   def timeout(self):
     print('*** timeout task ***')
     # this will just call Sys.sleep(10) in R
-    command = '''
-    source('R/ds_load.test.timeout.R')
-    '''    
+    request = self.user.dsr.request()
+    commands = [
+      'source("R/ds_load.test.timeout.R")'
+    ]
     try:
-      self.user.dsr.r.send(command)
+      request.get(commands)
     except Exception as e:
-      print('DsUserTasks.timeout: Error on sending command')
+      print('DsUserTasks.timeout: Error on calling request.get()')
       raise e
 
     output = None
     try:
-      output = self.user.dsr.gather_output()
+      output = request.output
       if output is None:
-        raise Exception('DsUserTasks.timeout: Error, failure test returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUserTasks.timeout: Error, timeout test returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print(f'DsUserTasks.timeout: Error on calling gather_output ({e})')
+      print('DsUserTasks.timeout: Error on getting request output')
 
     return output
 
@@ -166,8 +181,8 @@ class DsUser(DsRLocust):
   # setup is called before anything else, so do some setup
   # (login)
   def on_start(self):
-    # set timeout when waiting for r output to 5 seconds
-    self.dsr.r.r_timeout = 5
+    # set timeout when waiting for r output to 10 seconds
+    self.dsr.r.r_timeout = 10
     # login
     self.login()
 
@@ -175,48 +190,48 @@ class DsUser(DsRLocust):
     self.logout()
 
   def logout(self):
+    request = self.dsr.request()
+    commands = [
+      'source("R/teardown.R")',
+    ]
     try:
-      self.dsr.r.send(
-        '''
-        source('R/teardown.R')
-        '''
-      )
+      request.get(commands)
     except Exception as e:
       print('Error on sending logout command')
       raise e
 
     output = None
     try:
-      output = self.dsr.gather_output()
+      output = request.output
       if output is None:
-        raise Exception('DsUser.logout: Error, logout returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUser.login: Error, login returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print('DsUser.logout: Error on calling expect_output')
+      print('DsUser.logout: Error on getting request output')
 
     return output
 
   def login(self):
+    request = self.dsr.request()
+    commands = [
+      'source("R/setup.R")',
+      'source("ds_load.test.ls.R")'
+    ]
     try:
-      self.dsr.r.send(
-        '''
-        source('R/setup.R')
-        source('ds_load.test.ls.R')
-        '''
-      )
+      request.get(commands)
     except Exception as e:
       print('Error on sending login data')
       raise e
 
     output = None
     try:
-      output = self.dsr.gather_output()
+      output = request.output
       if output is None:
         raise Exception('DsUser.login: Error, login returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print('DsUser.login: Error on calling expect_output')
+      print('DsUser.login: Error on getting request output')
 
     print(f'output: {output}')
-    print(f'dsr status: {self.dsr.status}')
+    print(f'dsr request status: {request.status}')
 
     return output
 

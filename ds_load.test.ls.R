@@ -1,4 +1,3 @@
-library(waldo)
 library(devtools)
 
 context('testing login')
