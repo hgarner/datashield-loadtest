@@ -58,7 +58,6 @@ class pDsRClientRequest(pDsRRequest):
       events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e)
       raise e
     else:
-      print(result)
       total_time = int((time.time() - start_time) * 1000)
       if self.status == 200:
         # successfully got test results
@@ -98,7 +97,7 @@ class DsUserTasks(TaskSet):
   @task(1)
   def ls(self):
     print('*** ls task ***')
-    request = self.user.dsr.request()
+    request = self.user.dsr.request(timeout = self.user.request_timeout)
     commands = [
       'test_file("ds_load.test.ls.R")'
     ]
@@ -122,7 +121,7 @@ class DsUserTasks(TaskSet):
   # call a test which fails for debugging and testing locust
   def fail(self):
     print('*** fail task ***')
-    request = self.user.dsr.request()
+    request = self.user.dsr.request(timeout = self.user.request_timeout)
     commands = [
       'test_file("R/ds_load.test.fail.R")'
     ]
@@ -147,7 +146,7 @@ class DsUserTasks(TaskSet):
   def timeout(self):
     print('*** timeout task ***')
     # this will just call Sys.sleep(10) in R
-    request = self.user.dsr.request()
+    request = self.user.dsr.request(timeout = self.user.request_timeout)
     commands = [
       'source("R/ds_load.test.timeout.R")'
     ]
@@ -169,20 +168,21 @@ class DsUserTasks(TaskSet):
 
   #@task(1)
   def logout(self):
-    command = '''
-    source('R/teardown.R')
-    '''
+    commands = [
+      'source("R/teardown.R")',
+    ]
     pass  
 
 class DsUser(DsRLocust):
   taskset = DsUserTasks
   wait_time = between(5,15)
   tasks = {DsUserTasks:1}
+
   # setup is called before anything else, so do some setup
   # (login)
   def on_start(self):
-    # set timeout when waiting for r output to 10 seconds
-    self.dsr.r.r_timeout = 10
+    # set timeout when waiting for request output to 20 seconds
+    self.request_timeout = 20
     # login
     self.login()
 
@@ -190,7 +190,7 @@ class DsUser(DsRLocust):
     self.logout()
 
   def logout(self):
-    request = self.dsr.request()
+    request = self.dsr.request(timeout = self.request_timeout)
     commands = [
       'source("R/teardown.R")',
     ]
@@ -211,7 +211,7 @@ class DsUser(DsRLocust):
     return output
 
   def login(self):
-    request = self.dsr.request()
+    request = self.dsr.request(timeout = self.request_timeout)
     commands = [
       'source("R/setup.R")',
       'source("ds_load.test.ls.R")'

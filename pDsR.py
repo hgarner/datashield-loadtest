@@ -25,7 +25,6 @@ class pDsR():
     self.r_error = 'Error(.*)'
     self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?(\\x1b[39m).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
     self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
-    #self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+)'''
     # default timeout for a request - how long do we wait to gather output?
     self.request_timeout = 5
 
@@ -87,8 +86,6 @@ class pDsR():
       print(f'self.status: {self.status}')
       print(f'found_index: {found_index}')
 
-      # set look to 'before' to add data before match to output
-      look = 'before'
       if found_index == 2:
         # found the r prompt
         # at what point should the status be set here?
@@ -167,14 +164,14 @@ class pDsR():
     return output
 
 class pDsRRequest:
-  def __init__(self, pdsr_instance):
+  def __init__(self, pdsr_instance, timeout = 10):
     self.status = None
     self.output = None
     self.result = {
       'ok': None,
       'failed': None
     }
-    self.timeout = 10
+    self.timeout = timeout
     self.id = str(uuid4())
     self._command = None
     self.commands = []
@@ -196,10 +193,7 @@ class pDsRRequest:
       # we have a responsive console and to remove left-over output from
       # previous commands
       self.pdsr.r.sendline(f'#{self.id}#')
-      # store the current request_timeout
-      tmp_timeout = self.pdsr.request_timeout
-      self.pdsr.timeout = 0.1
-      output = str(self.pdsr.gather_output())
+      output = str(self.pdsr.gather_output(timeout = 0.5))
       # if the current status is none, this is the first command sent
       # check for self.id in the output and discard anything prior
       # to this as it is unread output from a previous command
@@ -214,8 +208,6 @@ class pDsRRequest:
       else:
         # no output at all so entirely unresponsive
         raise ValueError(f'pDsRRequest.get error: unable to raise reponse from R output')
-      # set the request_timeout to the specified value for this request
-      self.pdsr.request_timeout = self.timeout
 
       ###
       # send commands
@@ -224,7 +216,7 @@ class pDsRRequest:
       for command in commands:
         self._command = command
         self.pdsr.r.sendline(self._command)
-        output = str(self.pdsr.gather_output())
+        output = str(self.pdsr.gather_output(timeout = self.timeout))
         if output is not None:
           if self.output is not None:
             self.output += output
@@ -251,9 +243,6 @@ class pDsRRequest:
           # perhaps it would be better to have self.outputs and status
           # as lists, then push results to these?
           self.status = self.pdsr.status
-
-      # reset the request_timeout
-      self.pdsr.request_timeout = tmp_timeout
 
       return self
     else:
