@@ -129,7 +129,7 @@ class DsUserTasks(TaskSet):
   def ls(self):
     task_name = 'ls'
     commands = [
-      'test_file("ds_load.test.ls.R")'
+      'test_file("R/ds_load.test.ls.R")'
     ]
 
     output = self.run_task(task_name, commands)
@@ -208,6 +208,7 @@ class DsUser(DsRLocust):
 
   def login(self):
     request = self.dsr.request(timeout = self.request_timeout)
+    request.id_timeout = 1
     commands = [
       'source("R/setup.R")',
       'source("ds_load.test.ls.R")'
