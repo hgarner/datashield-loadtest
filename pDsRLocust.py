@@ -5,7 +5,10 @@ from locust import User, TaskSet, events, task, between
 import sys
 
 from pDsR import pDsR, pDsRRequest
+
 import pexpect
+
+from functools import partial
 
 # implement a simple client that runs an R script
 # gets the result and fires locust events on success/failure
@@ -94,80 +97,73 @@ class DsRLocust(User):
     self.dsr._locust_environment = self.environment
 
 class DsUserTasks(TaskSet):
-  @task(1)
-  def ls(self):
-    print('*** ls task ***')
+
+  # run a task (list of R commands) with specified task_name
+  # calls the pDsRClient instance's request() method
+  # return the output of the request
+  def run_task(self, task_name, commands, debug = True):
+    if debug:
+      print(f'*** running task: {task_name} ***')
     request = self.user.dsr.request(timeout = self.user.request_timeout)
-    commands = [
-      'test_file("ds_load.test.ls.R")'
-    ]
+
+    if not isinstance(commands, list):
+      raise TypeError('DsUserTasks.run_task: error, commands must be a list')
+
     try:
       request.get(commands)
     except Exception as e:
-      print('DsUserTasks.ls: Error on calling request.get()')
+      print('DsUserTasks.run_task: Error (task {task_name}) on calling request.get()')
       raise e
 
     output = None
     try:
       output = request.output
       if output is None:
-        raise Exception('DsUserTasks.ls: Error, ls test returning no output within {self.r_timeout} seconds')
+        raise Exception('DsUserTasks.run_task: Error, task {task_name} returning no output within {self.r_timeout} seconds')
     except Exception as e:
-      print('DsUserTasks.ls: Error on getting request output')
+      print('DsUserTasks.run_task: Error (task {task_name}) on getting request output')
+
+    return output
+
+  @task(1)
+  def ls(self):
+    task_name = 'ls'
+    commands = [
+      'test_file("ds_load.test.ls.R")'
+    ]
+
+    output = self.run_task(task_name, commands)
 
     return output
 
   @task(1)
   # call a test which fails for debugging and testing locust
   def fail(self):
-    print('*** fail task ***')
-    request = self.user.dsr.request(timeout = self.user.request_timeout)
+    task_name = 'fail'
     commands = [
       'test_file("R/ds_load.test.fail.R")'
     ]
-    try:
-      request.get(commands)
-    except Exception as e:
-      print('DsUserTasks.fail: Error on calling request.get()')
-      raise e
 
-    output = None
-    try:
-      output = request.output
-      if output is None:
-        raise Exception('DsUserTasks.failure: Error, failure test returning no output within {self.r_timeout} seconds')
-    except Exception as e:
-      print('DsUserTasks.failure: Error on getting request output')
+    output = self.run_task(task_name, commands)
 
     return output
 
   @task(1)
   # call a test which times out for debugging and testing locust
   def timeout(self):
-    print('*** timeout task ***')
+    task_name = 'timeout'
     # this will just call Sys.sleep(10) in R
-    request = self.user.dsr.request(timeout = self.user.request_timeout)
     commands = [
       'source("R/ds_load.test.timeout.R")'
     ]
-    try:
-      request.get(commands)
-    except Exception as e:
-      print('DsUserTasks.timeout: Error on calling request.get()')
-      raise e
 
-    output = None
-    try:
-      output = request.output
-      if output is None:
-        raise Exception('DsUserTasks.timeout: Error, timeout test returning no output within {self.r_timeout} seconds')
-    except Exception as e:
-      print('DsUserTasks.timeout: Error on getting request output')
+    output = self.run_task(task_name, commands)
 
     return output
 
   #@task(1)
   def logout(self):
+    task_name = 'logout'
     commands = [
       'source("R/teardown.R")',
     ]

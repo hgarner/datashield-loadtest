@@ -38,12 +38,6 @@ class pDsR():
   # @param string name name of request
   # @param string type type of request - either 'std' or 'test'
 
-  # create a command buffer (list) here (or in pDsRRequest?)
-  # for each command, submit and then check for match
-  # with output, ignore the command sent (use re.escape to match)
-  # note that if the command is still running, we won't see
-  # the empty command prompt '> ' so use this?
-
   # get all the output avalable within timeout
   # needs an expectation to break on
   # possibly add mutliple expectation streams for errors etc?
@@ -172,6 +166,7 @@ class pDsRRequest:
       'failed': None
     }
     self.timeout = timeout
+    self.id_timeout = 0.5
     self.id = str(uuid4())
     self._command = None
     self.commands = []
@@ -193,7 +188,7 @@ class pDsRRequest:
       # we have a responsive console and to remove left-over output from
       # previous commands
       self.pdsr.r.sendline(f'#{self.id}#')
-      output = str(self.pdsr.gather_output(timeout = 0.5))
+      output = str(self.pdsr.gather_output(timeout = self.id_timeout))
       # if the current status is none, this is the first command sent
       # check for self.id in the output and discard anything prior
       # to this as it is unread output from a previous command
