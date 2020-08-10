@@ -34,7 +34,7 @@ class pDsRClientRequest(pDsRRequest):
       result = super(pDsRClientRequest, self).get(*args, **kwargs)
     except Exception as e: 
       total_time = int((time.time() - start_time) * 1000)
-      events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e, response_length=len(repr(e).encode('utf-8'))
+      events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e, response_length=len(repr(e).encode('utf-8')))
       raise e
     else:
       total_time = int((time.time() - start_time) * 1000)
@@ -72,8 +72,10 @@ class DsRLocust(User):
     self.dsr = pDsRClient()
     self.dsr._locust_environment = self.environment
 
-class DsUserTasks(TaskSet):
-
+# extend the default TaskSet to add a run_task method
+# this is called from each task with the task_name and 
+# list of commands to be run
+class DsUserTaskSet(TaskSet):
   # run a task (list of R commands) with specified task_name
   # calls the pDsRClient instance's request() method
   # return the output of the request
@@ -101,6 +103,7 @@ class DsUserTasks(TaskSet):
 
     return output
 
+class DsUserTasks(DsUserTaskSet):
   @task(1)
   def ls(self):
     task_name = 'ls'
