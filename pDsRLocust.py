@@ -12,30 +12,6 @@ from functools import partial
 
 # implement a simple client that runs an R script
 # gets the result and fires locust events on success/failure
-# what does it need to do?
-# is something returned? (exit code)
-# is it what we expect? compare against predefined result
-# save some terminal output? 
-#  ( use subprocess.run([cmds], stdout=subprocess.PIPE) )
-# what about killing the script if timeout exceeded?
-# OR
-# do it using rpy2
-# take the script line by line
-# reformat this to pass through rpy2
-# exec and return result
-# OR
-# pass /single/ command to be run by rpy2
-# AND/OR
-# define a set of methods here to e.g.
-#   - connect
-#   - exit
-#   - run ds command
-# so a task set might be:
-#   - connect()
-#   - random command from list of commands
-#   - * n.b. commands could be tagged to allow grouping
-#   - repeat n times
-#   - exit()
 
 class pDsRClient(pDsR):
   _locust_environment = None
@@ -58,7 +34,7 @@ class pDsRClientRequest(pDsRRequest):
       result = super(pDsRClientRequest, self).get(*args, **kwargs)
     except Exception as e: 
       total_time = int((time.time() - start_time) * 1000)
-      events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e)
+      events.request_failure.fire(request_type='pDsRRequest', name='get', response_time=total_time, exception=e, response_length=len(repr(e).encode('utf-8'))
       raise e
     else:
       total_time = int((time.time() - start_time) * 1000)
@@ -208,10 +184,12 @@ class DsUser(DsRLocust):
 
   def login(self):
     request = self.dsr.request(timeout = self.request_timeout)
+    # up the timeout waiting for a reponse from R
+    # as this often seems to fail here
     request.id_timeout = 1
     commands = [
       'source("R/setup.R")',
-      'source("ds_load.test.ls.R")'
+      'source("R/ds_load.test.ls.R")'
     ]
     try:
       request.get(commands)
