@@ -6,6 +6,7 @@ source('R/ds_expect_variables.R')
 
 # setup the DataSHIELD connection and test env
 context('setup connection')
+print('Setting up...')
 
 library(DSOpal)
 library(dsBaseClient)
@@ -41,3 +42,4 @@ ds.test_env$connections <- datashield.login(logins=ds.test_env$login.data, assig
 options(datashield.env=ds.test_env)
 
 context('setup complete')
+print('Setup complete')

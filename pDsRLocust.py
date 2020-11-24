@@ -87,6 +87,8 @@ class DsUserTaskSet(TaskSet):
     if not isinstance(commands, list):
       raise TypeError('DsUserTasks.run_task: error, commands must be a list')
 
+    #commands.insert(0, 'list.files()')
+    #commands.insert(0, 'setwd("/datashield-loadtest_parent")')
     try:
       request.get(commands)
     except Exception as e:
@@ -127,7 +129,7 @@ class DsUserTasks(DsUserTaskSet):
 
     return output
 
-  @task(1)
+  #@task(1)
   # call a test which times out for debugging and testing locust
   def timeout(self):
     task_name = 'timeout'
@@ -189,10 +191,10 @@ class DsUser(DsRLocust):
     request = self.dsr.request(timeout = self.request_timeout)
     # up the timeout waiting for a reponse from R
     # as this often seems to fail here
-    request.id_timeout = 1
+    request.id_timeout = 5
     commands = [
       'source("R/setup.R")',
-      'source("R/ds_load.test.ls.R")'
+      'test_file("R/ds_load.test.ls.R")'
     ]
     try:
       request.get(commands)

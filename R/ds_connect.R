@@ -1,7 +1,7 @@
 # load required libraries
 devtools::install_github('https://github.com/datashield/DSI')
 devtools::install_github('https://github.com/datashield/DSOpal')
-devtools::install_github('https://github.com/datashield/dsBaseClient', ref='DSI')
+devtools::install_github('https://github.com/datashield/dsBaseClient', ref='v6.1')
 
 library(DSOpal)
 library(dsBaseClient)

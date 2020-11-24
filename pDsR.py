@@ -11,8 +11,9 @@ class pDsR():
   # on instantiation, create a new r process and read queue
   def __init__(self, *args, **kwargs):
     self.r = pexpect.spawn('/usr/bin/R --vanilla')
+    #self.r.delaybeforesend = 2
     # output for debugging
-    self.r.logfile = sys.stdout.buffer
+    #self.r.logfile = sys.stdout.buffer
     # todo above uses stderr - need nonblocking read on this
     # note that if we use stderr it seems to break the output of some ds commands (e.g. ds.dim)
     # turn off errors from r
@@ -23,8 +24,9 @@ class pDsR():
     self.r_prompt_timeout = 0.001
     self.r_prompt = '(.*)> $'
     self.r_error = 'Error(.*)'
-    self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?(\\x1b[39m).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
-    self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
+    #self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?(\\x1b[39m).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
+    #self.r_test_results = '''OK:\s+\\x1b\[(31m|32m|39m)(?P<ok_count>[0-9]+).*?\r\nFailed:\s+\\x1b\[(31m|32m|39m)(?P<failed_count>[0-9]+)'''
+    self.r_test_results = '''OK:\s+(?P<ok_count>[0-9]+)\r\nFailed:\s+(?P<failed_count>[0-9]+)\r\n'''
     # default timeout for a request - how long do we wait to gather output?
     self.request_timeout = 5
 
