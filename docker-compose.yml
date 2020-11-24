@@ -1,0 +1,16 @@
+version: '3'
+services:
+  master:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile
+    ports: 
+     - "8089:8089"
+    command: locust -f pDsRLocust.py --master -H http://master:8089
+
+  worker:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile
+    command: locust -f pDsRLocust.py --worker --master-host master
+
