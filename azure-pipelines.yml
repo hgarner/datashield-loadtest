@@ -1,0 +1,22 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'Ubuntu-18.04'
+
+variables:
+  composeFile: 'docker-compose.ubuntu.fullstack.dev.yml'
+
+steps:
+  - task: DockerCompose@0
+    inputs:
+      displayName: Build and run fullstack test example
+      dockerComposeFile: $(composeFile)
+      projectName: dsLoadTest
+      buildImages: true
+      dockerComposeFileArgs: |
+        exitCodeFrom=master
+        scale=4
+      abortOnContainerExit: true
+      detached: false
+    displayName: 'Install Opal etc and run load tests'
