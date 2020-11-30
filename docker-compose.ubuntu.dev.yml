@@ -1,0 +1,32 @@
+version: '3'
+services:
+  master:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
+    ports: 
+     - "8089:8089"
+    volumes:
+     - ./:/datashield-loadtest_parent
+    working_dir: /datashield-loadtest_parent
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: locust -f pDsRLocust.py --master -H http://master:8089
+
+  worker:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
+    volumes:
+     - ./:/datashield-loadtest_parent
+    working_dir: /datashield-loadtest_parent
+    ulimits:  
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: locust -f pDsRLocust.py --worker --master-host master
+
