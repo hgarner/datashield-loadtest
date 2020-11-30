@@ -28,6 +28,16 @@ RUN ls
 # install python reqs to system (not venv as not required in docker)
 # deploy causes abort of lockfile out of date
 RUN pipenv install --system --deploy
-#RUN pipenv shell
+
+# install precompiled r packages as binaries
+# (speeds up build)
+RUN add-apt-repository ppa:c2d4u.team/c2d4u4.0+ -y
+RUN apt-get update
+RUN apt-get install -y r-cran-devtools
+RUN apt-get install -y r-cran-ggplot2
+RUN apt-get install -y r-cran-data.table
+RUN apt-get install -y r-cran-rcolorbrewer
 
 RUN Rscript R/requirements.r
+
+CMD ['locust']
