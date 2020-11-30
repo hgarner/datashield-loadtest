@@ -15,7 +15,7 @@ steps:
       projectName: dsLoadTest
       buildImages: true
       dockerComposeFileArgs: |
-        exitCodeFrom=master
+        exit-code-from=master
         scale=4
       abortOnContainerExit: true
       detached: false
