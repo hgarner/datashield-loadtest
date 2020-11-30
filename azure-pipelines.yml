@@ -19,4 +19,5 @@ steps:
         scale=4
       abortOnContainerExit: true
       detached: false
+      dockerComposeCommand: up
     displayName: 'Install Opal etc and run load tests'
