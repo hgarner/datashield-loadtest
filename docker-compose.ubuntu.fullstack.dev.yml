@@ -1,0 +1,39 @@
+version: '3'
+services:
+  master:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
+    ports: 
+     - "8089:8089"
+    volumes:
+     - ./:/datashield-loadtest_parent
+    working_dir: /datashield-loadtest_parent
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: locust -f pDsRLocust.py --master --headless -H https://opal:8843 -u 2 -r 1 -t 120
+    depends_on:
+     - opal
+
+  worker:
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
+    volumes:
+     - ./:/datashield-loadtest_parent
+    working_dir: /datashield-loadtest_parent
+    ulimits:  
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: locust -f pDsRLocust.py --worker --master-host master
+    depends_on:
+     - opal
+
+  opal:
+    image: obiba/opal
+
