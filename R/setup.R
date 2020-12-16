@@ -14,10 +14,14 @@ library(dsBaseClient)
 # login dataframe
 # to be moved to passed args at some point
 servers <- c('dsloadtest_1')
-urls <- c('http://192.168.56.100:8080')
+# needs to move to args and/or csv
+#urls <- c('http://192.168.56.100:8080')
+#urls <- c('http://172.17.0.1:8880')
+urls <- c('http://opal:8080')
 
 user <- 'administrator'
-password <- 'datashield_test&'
+#password <- 'datashield_test&'
+password <- 'password'
 
 # as an example, use login data for CNSIM
 # currently as per tutorial that we're trying to replicate

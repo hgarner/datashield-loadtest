@@ -1,5 +1,7 @@
 version: '3'
 services:
+  opal:
+    image: obiba/opal
   master:
     build: 
       context: .
@@ -34,6 +36,4 @@ services:
     depends_on:
      - opal
 
-  opal:
-    image: obiba/opal
 
