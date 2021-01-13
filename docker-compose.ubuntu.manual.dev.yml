@@ -33,6 +33,17 @@ services:
   mongo:
     image: mongo
 
+  opal_load_data:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/opal_testdata/Dockerfile
+    volumes:
+     - ./:/datashield-loadtest_parent
+    working_dir: /datashield-loadtest_parent
+    depends_on:
+      - opal
+    entrypoint: sh -c "chmod +x opal_import_cnsim.sh; ./opal_import_cnsim.sh"
+
   master:
     build: 
       context: .
@@ -47,7 +58,7 @@ services:
       nofile:
         soft: 20000
         hard: 40000
-    command: /bin/bash -c "chmod +x opal_import_cnsim.sh && ./opal_import_cnsim.sh && bash -i"
+    command: /bin/bash -c "chmod +x wait_for_opal.sh; ./wait_for_opal.sh; locust -f pDsRLocust.py --master --headless -H https://opal:8843 -u 2 -r 1 -t 120"
     depends_on:
      - opal
 

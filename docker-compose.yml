@@ -1,16 +1,69 @@
 version: '3'
 services:
+  opal:
+    image: obiba/opal
+    ports:
+      - "8843:8443"
+      - "8880:8080"
+    environment:
+            - OPAL_ADMINISTRATOR_PASSWORD=password
+            - MONGO_HOST=mongo
+            - MONGO_PORT=27017
+            - MYSQLDATA_DATABASE=opal
+            - MYSQLDATA_HOST=mysqldata
+            - MYSQLDATA_USER=opal
+            - MYSQLDATA_PASSWORD=password
+            - RSERVER_HOST=rserver
+    volumes:
+      - /tmp/test-opal:/srv
+
+  rserver:
+    image: obiba/opal-rserver:latest
+    volumes:
+      - /tmp/rserver:/srv
+  mongo:
+    image: mongo
+
+  opal_load_data:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/opal_testdata/Dockerfile
+    depends_on:
+      - opal
+    entrypoint: sh -c "chmod +x opal_import_cnsim.sh; ./opal_import_cnsim.sh"
+
   master:
     build: 
       context: .
-      dockerfile: ./dockerfiles/ubuntu/Dockerfile
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
     ports: 
      - "8089:8089"
-    command: locust -f pDsRLocust.py --master -H http://master:8089
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: /bin/bash -c "chmod +x wait_for_opal.sh; ./wait_for_opal.sh; locust -f pDsRLocust.py --master --headless -H https://opal:8843 -u 2 -r 1 -t 120"
+    depends_on:
+     - opal
 
   worker:
     build: 
       context: .
-      dockerfile: ./dockerfiles/ubuntu/Dockerfile
+      dockerfile: ./dockerfiles/ubuntu/Dockerfile.dev
+    ulimits:  
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
     command: locust -f pDsRLocust.py --worker --master-host master
+    depends_on:
+     - opal 
 
+  mysqldata:
+    image: mysql:5
+    environment:
+      - MYSQL_DATABASE=opal
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_USER=opal
+      - MYSQL_PASSWORD=password

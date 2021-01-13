@@ -1,4 +1,6 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
+#FROM debian:buster-slim
+#ARG DEBIAN_FRONTEND=noninteractive
 
 # set locale encodings otherwise pipenv install fails
 ENV LC_ALL=C.UTF-8 
@@ -10,15 +12,23 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get -y update
 RUN apt-get install -y gnupg software-properties-common
+RUN apt-get install -y netcat
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
-RUN apt-add-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran40/'
+#RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+#RUN apt-add-repository --enable-source 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
+
+#RUN apt-key adv --keyserver keys.gnupg.net --recv-key 'E19F5F87128899B192B1A2C2AD5F960A256A04AF'
+#RUN apt-add-repository 'deb https://cloud.r-project.org/bin/linux/debian buster-cran40/'
 
 RUN apt-get -y update
 RUN apt-get -y upgrade
 RUN apt-get install -y build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
-RUN apt-get install -y r-base 
-RUN apt-get install -y python3.6 python3-pip python3-setuptools python3-dev
+
+RUN apt-get purge r-base* r-recommended r-cran-*
+RUN apt autoremove
+RUN apt update
+#RUN apt-get install -y python3.6 python3-pip python3-setuptools python3-dev
+RUN apt-get install -y python3-pip python3-setuptools python3-dev
 RUN pip3 install pipenv
 
 COPY . /datashield_loadtest
@@ -29,9 +39,18 @@ WORKDIR /datashield_loadtest
 RUN pipenv install --system --deploy
 #RUN pipenv shell
 
-RUN add-apt-repository ppa:c2d4u.team/c2d4u4.0+ -y
+RUN add-apt-repository --enable-source -y ppa:c2d4u.team/c2d4u4.0+
+RUN add-apt-repository --enable-source -y "ppa:marutter/rrutter4.0"
 RUN apt-get update
-RUN apt-get install -y r-cran-devtools
+RUN apt-get install -y r-base 
+#RUN apt-get install -y libgit2-26
+#RUN apt-get install -y r-cran-gert
+#RUN apt-get install -y r-cran-usethis
+
+RUN apt-get install -y r-base-core r-base-dev
+RUN R --version
+RUN apt-get build-dep -y r-cran-devtools
+RUN apt-get install -y -f r-cran-devtools
 RUN apt-get install -y r-cran-ggplot2
 RUN apt-get install -y r-cran-data.table
 RUN apt-get install -y r-cran-rcolorbrewer
