@@ -16,9 +16,9 @@ sleep 5
 
 /usr/bin/opal project --verbose --opal http://opal:8080 -u administrator -p 'password' --add --name CNSIM --database mongodb
 
-ls /datashield-loadtest
+ls /datashield_loadtest
 
-/usr/bin/opal file --opal http://opal:8080 -u administrator -p 'password' --upload /datashield-loadtest/CNSIM.zip /home/administrator
+/usr/bin/opal file --opal http://opal:8080 -u administrator -p 'password' --upload /datashield_loadtest/CNSIM.zip /home/administrator
 
 /usr/bin/opal import-xml --opal http://opal:8080 -u administrator -p 'password' --path /home/administrator/CNSIM.zip --destination CNSIM
 
