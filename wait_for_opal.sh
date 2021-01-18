@@ -14,6 +14,6 @@ is_up() {
 
 is_up
 # slight additional delay
-sleep 10
+sleep 40
 
 echo "Opal (opal:8080) is ready..."

@@ -12,7 +12,7 @@ is_up() {
 
 is_up
 # slight additional delay
-sleep 5
+sleep 20
 
 /usr/bin/opal project --verbose --opal http://opal:8080 -u administrator -p 'password' --add --name CNSIM --database mongodb
 
